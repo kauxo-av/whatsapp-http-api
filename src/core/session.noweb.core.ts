@@ -13,19 +13,16 @@ import makeWASocket, {
   WAMessageKey,
 } from '@adiwajshing/baileys';
 import { UnprocessableEntityException } from '@nestjs/common';
-import { request } from 'express';
+import * as Buffer from 'buffer';
 import * as fs from 'fs/promises';
 import { Agent } from 'https';
 import * as lodash from 'lodash';
-import { update } from 'lodash';
 import { PairingCodeResponse } from 'src/structures/auth.dto';
-import { Message } from 'whatsapp-web.js';
 
 import { flipObject, splitAt } from '../helpers';
 import {
   ChatRequest,
   CheckNumberStatusQuery,
-  MessageContactVcardRequest,
   MessageDestination,
   MessageFileRequest,
   MessageImageRequest,
@@ -58,12 +55,14 @@ import {
   WAHAPresenceData,
 } from '../structures/presence.dto';
 import { WAMessage } from '../structures/responses.dto';
+import { MeInfo } from '../structures/sessions.dto';
 import { BROADCAST_ID, TextStatus } from '../structures/status.dto';
 import {
   PollVote,
   PollVotePayload,
   WAMessageAckBody,
 } from '../structures/webhooks.dto';
+import { IEngineMediaProcessor } from './abc/media.abc';
 import {
   ensureSuffix,
   WAHAInternalEvent,
@@ -75,7 +74,6 @@ import {
 } from './exceptions';
 import { createAgentProxy } from './helpers.proxy';
 import { QR } from './QR';
-import { MeInfo } from '../structures/sessions.dto';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const QRCode = require('qrcode');
@@ -114,7 +112,8 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
   }
 
   start() {
-    return this.buildClient();
+    this.status = WAHASessionStatus.STARTING;
+    this.buildClient();
   }
 
   getSocketConfig(agent, state) {
@@ -139,7 +138,6 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
     const socketConfig = this.getSocketConfig(agent, state);
     const sock: any = makeWASocket(socketConfig);
     sock.ev.on(BaileysEvents.CREDS_UPDATE, saveCreds);
-    this.debugLogEnginesEvents(sock);
     return sock;
   }
 
@@ -169,8 +167,11 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
   async buildClient() {
     this.sock = await this.makeSocket();
     this.connectStore();
+    if (this.isDebugEnabled()) {
+      this.listenEngineEventsInDebugMode();
+    }
     this.listenConnectionEvents();
-    this.events.emit(WAHAInternalEvent.engine_start);
+    this.events.emit(WAHAInternalEvent.ENGINE_START);
   }
 
   protected async getMessage(
@@ -179,15 +180,21 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
     if (!this.store) {
       return proto.Message.fromObject({});
     }
-    const msg = await this.store.loadMessage(key.remoteJid!, key.id!);
+    const msg = await this.store.loadMessage(key.remoteJid, key.id);
     return msg?.message || undefined;
+  }
+
+  protected listenEngineEventsInDebugMode() {
+    this.sock.ev.process((events) => {
+      this.log.debug(`Received NOWEB events`, events);
+    });
   }
 
   protected listenConnectionEvents() {
     this.log.debug(`Start listening ${BaileysEvents.CONNECTION_UPDATE}...`);
     this.sock.ev.on(BaileysEvents.CONNECTION_UPDATE, async (update) => {
       const { connection, lastDisconnect, qr } = update;
-      if (connection === 'connecting') {
+      if (connection === 'open') {
         this.qr.save('');
         this.status = WAHASessionStatus.WORKING;
         this.resubscribeToKnownPresences();
@@ -203,10 +210,11 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
           shouldReconnect,
         );
         this.qr.save('');
-        this.status = WAHASessionStatus.FAILED;
         // reconnect if not logged out
         if (shouldReconnect) {
           setTimeout(() => this.buildClient(), 2 * SECOND);
+        } else {
+          this.status = WAHASessionStatus.FAILED;
         }
       }
 
@@ -214,29 +222,17 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
       if (qr) {
         this.status = WAHASessionStatus.SCAN_QR_CODE;
         QRCode.toDataURL(qr).then((url) => {
-          this.qr.save(url);
+          this.qr.save(url, qr);
         });
       }
     });
   }
 
-  protected debugLogEnginesEvents(sock) {
-    if (!process.env.DEBUG) {
-      return;
-    }
-
-    sock.ev.process((events) => {
-      this.log.debug('Engine events');
-      this.log.debug('=============');
-      console.log(JSON.stringify(events));
-      this.log.debug('=============');
-    });
-  }
-
-  stop() {
+  async stop() {
     this.sock.ev.removeAllListeners();
     this.sock.ws.removeAllListeners();
     this.sock.ws.close();
+    this.status = WAHASessionStatus.STOPPED;
     return;
   }
 
@@ -260,8 +256,8 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
   /**
    * Auth methods
    */
-  public async getQR(): Promise<Buffer> {
-    return Promise.resolve(this.qr.get());
+  public getQR(): QR {
+    return this.qr;
   }
 
   public async requestCode(
@@ -283,16 +279,16 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
       throw new UnprocessableEntityException(err);
     }
 
-    this.log.debug('Requesting pairing code...');
+    this.log.log(`Requesting pairing code for '${phoneNumber}'...`);
     const code: string = await this.sock.requestPairingCode(phoneNumber);
     // show it as ABCD-ABCD
     const parts = splitAt(code, 4);
     const codeRepr = parts.join('-');
-    this.log.debug(`Your code: ${codeRepr}`);
+    this.log.log(`Your code: ${codeRepr}`);
     return { code: codeRepr };
   }
 
-  async getScreenshot(): Promise<Buffer | string> {
+  async getScreenshot(): Promise<Buffer> {
     if (this.status === WAHASessionStatus.STARTING) {
       throw new UnprocessableEntityException(
         `The session is starting, please try again after few seconds`,
@@ -316,10 +312,13 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
   ): Promise<WANumberExistResult> {
     const phone = request.phone.split('@')[0];
     const [result] = await this.sock.onWhatsApp(phone);
-    if (!result) {
+    if (!result || !result.exists) {
       return { numberExists: false };
     }
-    return { numberExists: result.exists };
+    return {
+      numberExists: true,
+      chatId: toCusFormat(result.jid),
+    };
   }
 
   sendText(request: MessageTextRequest) {
@@ -564,55 +563,61 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
    * END - Methods for API
    */
 
-  subscribe(event, handler) {
-    if (event === WAHAEvents.MESSAGE) {
-      this.sock.ev.on(BaileysEvents.MESSAGES_UPSERT, ({ messages }) => {
-        this.handleIncomingMessages(messages, handler, false);
-      });
-    } else if (event === WAHAEvents.MESSAGE_ANY) {
-      this.sock.ev.on(BaileysEvents.MESSAGES_UPSERT, ({ messages }) =>
-        this.handleIncomingMessages(messages, handler, true),
-      );
-    } else if (event === WAHAEvents.MESSAGE_ACK) {
-      // Direct message ack
-      this.sock.ev.on(BaileysEvents.MESSAGES_UPDATE, (events) => {
-        events
-          .filter(isMine)
-          .filter(isAckUpdateMessageEvent)
-          .map(this.convertMessageUpdateToMessageAck)
-          .forEach(handler);
-      });
-      // Group message ack
-      this.sock.ev.on(BaileysEvents.MESSAGE_RECEIPT_UPDATE, (events) => {
-        events
-          .filter(isMine)
-          .map(this.convertMessageReceiptUpdateToMessageAck)
-          .forEach(handler);
-      });
-    } else if (event === WAHAEvents.STATE_CHANGE) {
-      this.sock.ev.on(BaileysEvents.CONNECTION_UPDATE, handler);
-    } else if (event === WAHAEvents.GROUP_JOIN) {
-      this.sock.ev.on(BaileysEvents.GROUPS_UPSERT, handler);
-    } else if (event === WAHAEvents.PRESENCE_UPDATE) {
-      this.sock.ev.on(BaileysEvents.PRESENCE_UPDATE, (data) =>
-        handler(this.toWahaPresences(data.id, data.presences)),
-      );
-    } else if (event === WAHAEvents.POLL_VOTE) {
-      this.sock.ev.on(BaileysEvents.MESSAGES_UPDATE, (events) => {
-        events.forEach((event) =>
-          this.handleMessagesUpdatePollVote(event, handler),
+  subscribeEngineEvent(event, handler): boolean {
+    switch (event) {
+      case WAHAEvents.MESSAGE:
+        this.sock.ev.on(BaileysEvents.MESSAGES_UPSERT, ({ messages }) => {
+          this.handleIncomingMessages(messages, handler, false);
+        });
+        return true;
+      case WAHAEvents.MESSAGE_ANY:
+        this.sock.ev.on(BaileysEvents.MESSAGES_UPSERT, ({ messages }) =>
+          this.handleIncomingMessages(messages, handler, true),
         );
-      });
-    } else if (event === WAHAEvents.POLL_VOTE_FAILED) {
-      this.sock.ev.on(BaileysEvents.MESSAGES_UPSERT, ({ messages }) => {
-        messages.forEach((message) =>
-          this.handleMessageUpsertPollVoteFailed(message, handler),
+        return true;
+      case WAHAEvents.MESSAGE_ACK: // Direct message ack
+        this.sock.ev.on(BaileysEvents.MESSAGES_UPDATE, (events) => {
+          events
+            .filter(isMine)
+            .filter(isAckUpdateMessageEvent)
+            .map(this.convertMessageUpdateToMessageAck)
+            .forEach(handler);
+        });
+        // Group message ack
+        this.sock.ev.on(BaileysEvents.MESSAGE_RECEIPT_UPDATE, (events) => {
+          events
+            .filter(isMine)
+            .map(this.convertMessageReceiptUpdateToMessageAck)
+            .forEach(handler);
+        });
+        return true;
+      case WAHAEvents.STATE_CHANGE:
+        this.sock.ev.on(BaileysEvents.CONNECTION_UPDATE, handler);
+        return true;
+      case WAHAEvents.GROUP_JOIN:
+        this.sock.ev.on(BaileysEvents.GROUPS_UPSERT, handler);
+        return true;
+      case WAHAEvents.PRESENCE_UPDATE:
+        this.sock.ev.on(BaileysEvents.PRESENCE_UPDATE, (data) =>
+          handler(this.toWahaPresences(data.id, data.presences)),
         );
-      });
-    } else {
-      throw new NotImplementedByEngineError(
-        `Engine does not support webhook event: ${event}`,
-      );
+        return true;
+      case WAHAEvents.POLL_VOTE:
+        this.sock.ev.on(BaileysEvents.MESSAGES_UPDATE, (events) => {
+          events.forEach((event) =>
+            this.handleMessagesUpdatePollVote(event, handler),
+          );
+        });
+        return true;
+      case WAHAEvents.POLL_VOTE_FAILED:
+        this.sock.ev.on(BaileysEvents.MESSAGES_UPSERT, ({ messages }) => {
+          messages.forEach((message) =>
+            this.handleMessageUpsertPollVoteFailed(message, handler),
+          );
+        });
+        return true;
+      default:
+        return false;
     }
   }
 
@@ -658,10 +663,10 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
       body: body,
       to: toCusFormat(fromToParticipant.to),
       participant: toCusFormat(fromToParticipant.participant),
-      // @ts-ignore
-      hasMedia: Boolean(message.mediaUrl),
-      // @ts-ignore
-      mediaUrl: message.mediaUrl,
+      // Media
+      hasMedia: Boolean(message.media),
+      media: message.media,
+      mediaUrl: message.media?.url,
       // @ts-ignore
       ack: message.ack,
       // @ts-ignore
@@ -754,6 +759,7 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
       handler(payload);
     }
   }
+
   protected async handleMessageUpsertPollVoteFailed(message, handler) {
     const pollUpdateMessage = message.message?.pollUpdateMessage;
     if (!pollUpdateMessage) {
@@ -809,14 +815,39 @@ export class WhatsappSessionNoWebCore extends WhatsappSession {
     return { id: chatId, presences: presences };
   }
 
-  protected async downloadMedia(message: Message) {
-    if (!message.hasMedia) {
-      return message;
-    }
+  protected downloadMedia(message) {
+    const processor = new EngineMediaProcessor(this);
+    return this.mediaManager.processMedia(processor, message);
+  }
+}
 
-    // @ts-ignore
-    message.mediaUrl = await this.storage.save(message.key.id, '', undefined);
-    return message;
+export class EngineMediaProcessor implements IEngineMediaProcessor<any> {
+  constructor(public session: WhatsappSessionNoWebCore) {}
+
+  hasMedia(message: any): boolean {
+    const messageType = Object.keys(message.message)[0];
+    const hasMedia =
+      messageType === 'imageMessage' ||
+      messageType == 'audioMessage' ||
+      messageType == 'documentMessage' ||
+      messageType == 'videoMessage';
+    return hasMedia;
+  }
+
+  getMessageId(message: any): string {
+    return '';
+  }
+
+  getMimetype(message: any): string {
+    return '';
+  }
+
+  getMediaBuffer(message: any): Promise<Buffer | null> {
+    return Promise.resolve(undefined);
+  }
+
+  getFilename(message: any): string | null {
+    return message.message?.documentMessage?.fileName || null;
   }
 }
 

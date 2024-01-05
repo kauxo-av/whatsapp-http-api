@@ -1,10 +1,18 @@
-import { Controller, Get, Query, Res } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  Res,
+  StreamableFile,
+  UseInterceptors,
+} from '@nestjs/common';
 import { ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
-import { Readable } from 'stream';
 
 import { SessionManager } from '../core/abc/manager.abc';
 import { SessionQuery } from '../structures/base.dto';
+import { BufferResponseInterceptor } from './BufferResponseInterceptor';
+import { ApiFileAcceptHeader } from './helpers';
 
 @ApiSecurity('api_key')
 @Controller('api')
@@ -13,17 +21,13 @@ export class ScreenshotController {
   constructor(private manager: SessionManager) {}
 
   @Get('/screenshot')
-  async screenshot(@Res() res: Response, @Query() sessionQuery: SessionQuery) {
+  @UseInterceptors(new BufferResponseInterceptor())
+  @ApiFileAcceptHeader()
+  async screenshot(
+    @Res({ passthrough: true }) res: Response,
+    @Query() sessionQuery: SessionQuery,
+  ) {
     const whatsappService = this.manager.getSession(sessionQuery.session);
-    const buffer = await whatsappService.getScreenshot();
-    const stream = new Readable();
-    stream.push(buffer);
-    stream.push(null);
-
-    res.set({
-      'Content-Type': 'image/png',
-      'Content-Length': buffer.length,
-    });
-    stream.pipe(res);
+    return await whatsappService.getScreenshot();
   }
 }

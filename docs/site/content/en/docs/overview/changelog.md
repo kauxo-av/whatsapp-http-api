@@ -19,6 +19,52 @@ If you wish to get and read Release Notes - read them on one of our platforms, *
 
 You even can **subscribe to get new updates** there!
 
+## 2023.12
+December 2023
+- Add `chatId` field to `GET /api/contacts/check-exists` to help get the right `chatId` for Brazilian numbers.
+Read more about
+  [error sending text to half of Brazilian numbers (every number registered before 2012) ->](https://github.com/devlikeapro/whatsapp-http-api/issues/238)
+
+## 2023.11
+November 2023
+- Add different formats for QR code:
+  1. **binary image** - `GET /api/{session}/auth/qr`
+  2. **base64 image** - `GET /api/{session}/auth/qr` and set `Accept: application/json` header
+  3. **raw** - `GET /api/{session}/auth/qr?format=raw`
+- Add different formats for the screenshot:
+  1. **binary image** - `GET /api/{session}/screenshot`
+  2. **base64 image** - `GET /api/{session}/screenshot` and set `Accept: application/json` header
+- Add `WHATSAPP_SWAGGER_ENABLED=false` so you can hide Swagger documentation (available only in Plus version). [#185](https://github.com/devlikeapro/whatsapp-http-api/issues/185)
+- Add dedicated `media` field in webhook payload - now you can know which media is attached to the message.
+```json
+{
+  "event": "message",
+  "session": "default",
+  "payload": {
+    "hasMedia": true,
+    "media": {
+      "url": "http://localhost:3000/api/files/true_11111111111@c.us_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.pdf",
+      "mimetype": "application/pdf",
+      "filename": "file.pdf"
+    }
+  }
+}
+
+```
+- Add `WHATSAPP_DOWNLOAD_MEDIA` environment variable to control media download. Available only in Plus version.
+  - `WHATSAPP_DOWNLOAD_MEDIA=True` - download media
+  - `WHATSAPP_DOWNLOAD_MEDIA=False` - do not download media at all.
+- Add `filename` field for document (file attachments) - the original filename of the document.
+- Add `/api/sendVideo` endpoint to **NOWEB** and **WEBJS** engines. Available only in Plus version.
+- Add security settings for edit group info `GET /api/{session}/groups/{groupId}/settings/security/info-admin-only` - updates the group settings to only allow admins to edit group info (title, description, photo).
+
+## 2023.10
+October 2023
+- Add `session.status` event for all engines! Now you can get the latest session's status immediately after it changes.
+- Add `message.revoked` event in **WEBJS** engine
+- Add `me` field in webhook payload - now you can know which number is associated with the session
+- Add `enviroment` field in webhook payload - now you can know which environment is used for the session
+
 ## 2023.9
 September 2023
 - Add `GET /api/sessions/{session/me` endpoint so you [can get the phone number associated with the session](https://waha.devlike.pro/docs/how-to/sessions/#get-me)

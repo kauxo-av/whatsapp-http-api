@@ -57,6 +57,21 @@ Not running Chromium saves you CPU and Memory, so you can run more instances on 
 It's a high-performance system developed with JavaScript to create a bot for WhatsApp.
 It uses Puppeteer to run a real instance of Whatsapp Web to avoid getting blocked.
 
+## Docker images
+WAHA provides few docker images with different setup.
+{{< alert icon="👉" text="Use `devlikeapro/whatsapp-http-api` instead of `devlikeapro/whatsapp-http-api-plus` to get **WAHA Plus** version." />}}
+
+For **x86** processors use following images:
+- `devlikeapro/whatsapp-http-api:latest` - latest version of WAHA, using **Chromium** (does not support video receiving and receiving in Plus version)
+- `devlikeapro/whatsapp-http-api:chrome` - latest version of WAHA, using **Chrome** (supports video receiving and receiving in Plus version)
+- `devlikeapro/whatsapp-http-api:noweb`- latest version of WAHA, **no browser installed** - use it only for **NOWEB** engine
+
+For **ARM** processors use following images:
+- `devlikeapro/whatsapp-http-api:arm` - **Chromium**
+- `devlikeapro/whatsapp-http-api:arm-noweb`- **no browser installed**
+
+{{< alert icon="💡" text="Chrome version is not available in ARM" />}}
+
 ## Features
 
 Some engines may not support certain features.
@@ -79,23 +94,24 @@ it's the engine WAHA runs by default.
 | Communicate with WhatsApp via websocket (no browser)         |   ➖   |  ✔️   |   ➖   |
 
 ### Endpoints
+
 If you find any inconsistency with actual endpoints -
 please [create an issue](https://github.com/devlikeapro/whatsapp-http-api/issues/new?title=Error+in+engine+features )
 
-|                                           | WEBJS | NOWEB | VENOM |
-|-------------------------------------------|:-----:|:-----:|:-----:|
-| **Session**                               |       |       |       |
-| `POST /api/sessions/start`                |  ✔️   |  ✔️   |  ✔️   |
-| `POST /api/sessions/stop`                 |  ✔️   |  ✔️   |  ✔️   |
-| `POST /api/sessions/logout`               |  ✔️   |  ✔️   |  ✔️   |
-| `GET /api/sessions/`                      |  ✔️   |  ✔️   |  ✔️   |
-| `GET /api/sessions/{session}/me`          |  ✔️   |  ✔️   |   ➖   |
-| **Authentication**                        |       |       |       |
-| `POST /api/{session}/auth/qr`             |  ✔️   |  ✔️   |   ➖   |
-| `POST /api/{session}/auth/request-code`   |   ➖   |  ✔️   |   ➖   |
-| `POST /api/{session}/auth/authorize-code` |   ➖   |  ✔️   |   ➖   |
-| **Screenshot**                            |       |       |       |
-| `POST /api/screenshot`                    |  ✔️   |   ➖   |  ✔️   |
+|                                           | WEBJS |                                   NOWEB                                   | VENOM |
+|-------------------------------------------|:-----:|:-------------------------------------------------------------------------:|:-----:|
+| **Session**                               |       |                                                                           |       |
+| `POST /api/sessions/start`                |  ✔️   |                                    ✔️                                     |  ✔️   |
+| `POST /api/sessions/stop`                 |  ✔️   |                                    ✔️                                     |  ✔️   |
+| `POST /api/sessions/logout`               |  ✔️   |                                    ✔️                                     |  ✔️   |
+| `GET /api/sessions/`                      |  ✔️   |                                    ✔️                                     |  ✔️   |
+| `GET /api/sessions/{session}/me`          |  ✔️   |                                    ✔️                                     |   ➖   |
+| **Authentication**                        |       |                                                                           |       |
+| `POST /api/{session}/auth/qr`             |  ✔️   |                                    ✔️                                     |  ✔️   |
+| `POST /api/{session}/auth/request-code`   |   ➖   |                                    ✔️                                     |   ➖   |
+| `POST /api/{session}/auth/authorize-code` |   ➖   | ➖️<br>[#113](https://github.com/devlikeapro/whatsapp-http-api/issues/113) |   ➖   |
+| **Screenshot**                            |       |                                                                           |       |
+| `POST /api/screenshot`                    |  ✔️   |                                     ➖                                     |  ✔️   |
 
 | **Chatting**                                         | WEBJS | NOWEB | VENOM |
 |------------------------------------------------------|:-----:|:-----:|:-----:|
@@ -109,6 +125,7 @@ please [create an issue](https://github.com/devlikeapro/whatsapp-http-api/issues
 | `POST /api/sendImage` ![](/images/versions/plus.png) |  ✔️   |  ✔️   |  ✔️   |
 | `POST /api/sendFile` ![](/images/versions/plus.png)  |  ✔️   |  ✔️   |  ✔️   |
 | `POST /api/sendVoice` ![](/images/versions/plus.png) |  ✔️   |  ✔️   |  ✔️   |
+| `POST /api/sendVideo` ![](/images/versions/plus.png) |  ✔️   |  ✔️   |   ➖   |
 | `POST /api/reply`                                    |  ✔️   |  ✔️   |  ✔️   |
 | `POST /api/sendSeen`                                 |  ✔️   |  ✔️   |  ✔️   |
 | `POST /api/startTyping`                              |  ✔️   |  ✔️   |  ✔️   |
@@ -143,6 +160,7 @@ please [create an issue](https://github.com/devlikeapro/whatsapp-http-api/issues
 | `GET /api/{session}/groups`                                        |  ✔️   |  ✔️   |   ➖   |
 | `GET /api/{session}/groups/{id}`                                   |  ✔️   |  ✔️   |   ➖   |
 | `DELETE /api/{session}/groups/{id}`                                |  ✔️   |   ➖   |   ➖   |
+| `GET /api/{session}/groups/{id}/settings/security/info-admin-only` |  ✔️   |   ➖   |   ➖   |
 | `PUT /api/{session}/groups/{id}/settings/security/info-admin-only` |  ✔️   |   ➖   |   ➖   |
 | `POST /api/{session}/groups/{id}/leave`                            |  ✔️   |  ✔️   |   ➖   |
 | `PUT /api/{session}/groups/{id}/description`                       |  ✔️   |  ✔️   |   ➖   |
@@ -171,6 +189,7 @@ please [create an issue](https://github.com/devlikeapro/whatsapp-http-api/issues
 | `message` with files ![](/images/versions/plus.png) |  ✔️   |  ✔️   |  ✔️   |
 | `message.any`                                       |  ✔️   |  ✔️   |  ✔️   |
 | `message.ack`                                       |  ✔️   |  ✔️   |  ✔️   |
+| `message.revoked`                                   |  ✔️   |   ➖   |   ➖   |
 | `state.change`                                      |  ✔️   |  ✔️   |  ✔️   |
 | `group.join`                                        |  ✔️   |  ✔️   |  ✔️   |
 | `group.leave`                                       |  ✔️   |   ➖   |   ➖   |

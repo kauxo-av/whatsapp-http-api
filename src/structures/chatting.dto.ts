@@ -1,10 +1,17 @@
-import { ApiExtraModels, ApiProperty, getSchemaPath } from '@nestjs/swagger';
+import {
+  ApiExtraModels,
+  ApiHideProperty,
+  ApiProperty,
+  getSchemaPath,
+} from '@nestjs/swagger';
 import { IsNumber, IsString } from 'class-validator';
 
 import { SessionBaseRequest, SessionQuery } from './base.dto';
 import {
   BinaryFile,
   RemoteFile,
+  VideoBinaryFile,
+  VideoRemoteFile,
   VoiceBinaryFile,
   VoiceRemoteFile,
 } from './files.dto';
@@ -21,6 +28,7 @@ export class CheckNumberStatusQuery extends SessionQuery {
 export class MessageTextQuery extends SessionQuery {
   @IsString()
   phone: string;
+
   @IsString()
   text: string;
 }
@@ -33,6 +41,7 @@ export class ChatQuery extends SessionQuery {
 export class GetMessageQuery extends ChatQuery {
   @IsNumber()
   limit: number;
+
   @ApiProperty({
     example: true,
     required: false,
@@ -83,12 +92,7 @@ export class MessageContactVcardRequest extends ChatRequest {
 
 export class MessageTextRequest extends ChatRequest {
   text = 'Hi there!';
-  @ApiProperty({
-    description:
-      'Mention contact in the message. ' +
-      "The message MUST contain '@123456789' text in order to work with 'mentions' field.",
-    example: ['123456789@c.us'],
-  })
+  @ApiHideProperty()
   mentions?: string[];
 }
 
@@ -136,6 +140,19 @@ export class MessageVoiceRequest extends ChatRequest {
   file: VoiceBinaryFile | VoiceRemoteFile;
 }
 
+@ApiExtraModels(VideoRemoteFile, VideoBinaryFile)
+export class MessageVideoRequest extends ChatRequest {
+  @ApiProperty({
+    oneOf: [
+      { $ref: getSchemaPath(VideoRemoteFile) },
+      { $ref: getSchemaPath(VideoBinaryFile) },
+    ],
+  })
+  file: VideoRemoteFile | VideoBinaryFile;
+
+  caption: string = 'Just watch at this!';
+}
+
 export class MessageLinkPreviewRequest extends ChatRequest {
   url: string;
   title: string;
@@ -152,6 +169,11 @@ export class MessageReactionRequest extends MessageRequest {
 
 export class WANumberExistResult {
   numberExists: boolean;
+  @ApiProperty({
+    example:
+      'Chat id for the phone number. Undefined if the number does not exist',
+  })
+  chatId?: string;
 }
 
 export class MessagePoll {
@@ -178,6 +200,7 @@ export class MessageDestination {
     example: 'false_11111111111@c.us_AAAAAAAAAAAAAAAAAAAA',
   })
   id: string;
+
   to: string;
   from: string;
   fromMe: boolean;

@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { parseBool } from './helpers';
 import { WAHAEngine } from './structures/enums.dto';
 import { WebhookConfig } from './structures/webhooks.config.dto';
+import { getEngineName } from './version';
 
 @Injectable()
 export class WhatsappConfigService {
@@ -35,9 +36,17 @@ export class WhatsappConfigService {
     return this.configService.get<number>('WHATSAPP_FILES_LIFETIME', 180);
   }
 
-  get mimetypes(): string[] | null {
+  get mimetypes(): string[] {
+    if (!this.shouldDownloadMedia) {
+      return ['mimetype/ignore-all-media'];
+    }
     const types = this.configService.get('WHATSAPP_FILES_MIMETYPES', '');
-    return types ? types.split(',') : null;
+    return types ? types.split(',') : [];
+  }
+
+  get shouldDownloadMedia(): boolean {
+    const value = this.configService.get('WHATSAPP_DOWNLOAD_MEDIA', 'true');
+    return parseBool(value);
   }
 
   get startSessions(): string[] {
@@ -100,21 +109,27 @@ export class WhatsappConfigService {
   }
 
   getDefaultEngineName(): WAHAEngine {
-    const value = this.get('WHATSAPP_DEFAULT_ENGINE', WAHAEngine.WEBJS);
+    const value = getEngineName();
     if (value in WAHAEngine) {
       return WAHAEngine[value];
     }
     console.log(
-      `Unknown WhatsApp default engine, using WEBJS. WHATSAPP_DEFAULT_ENGINE=${value}`,
+      `Unknown WhatsApp default engine WHATSAPP_DEFAULT_ENGINE=${value}. Using WEBJS`,
     );
+    return WAHAEngine.WEBJS;
   }
 
-  get(name: string, defaultValue = undefined): any {
+  get(name: string, defaultValue: any = undefined): any {
     return this.configService.get(name, defaultValue);
   }
 
   getApiKey(): string | undefined {
     return this.configService.get('WHATSAPP_API_KEY', '');
+  }
+
+  getSwaggerEnabled(): boolean {
+    const value = this.configService.get('WHATSAPP_SWAGGER_ENABLED', 'true');
+    return parseBool(value);
   }
 
   getSwaggerUsernamePassword(): [string, string] | undefined {

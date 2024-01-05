@@ -3,6 +3,7 @@ import { EventEmitter } from 'events';
 import * as fs from 'fs';
 import { MessageId } from 'whatsapp-web.js';
 
+import { OTPRequest, RequestCodeRequest } from '../../structures/auth.dto';
 import {
   ChatRequest,
   CheckNumberStatusQuery,
@@ -16,6 +17,7 @@ import {
   MessageReactionRequest,
   MessageReplyRequest,
   MessageTextRequest,
+  MessageVideoRequest,
   MessageVoiceRequest,
 } from '../../structures/chatting.dto';
 import { ContactQuery, ContactRequest } from '../../structures/contacts.dto';
@@ -28,6 +30,7 @@ import {
 import {
   CreateGroupRequest,
   ParticipantsRequest,
+  SettingsSecurityChangeInfo,
 } from '../../structures/groups.dto';
 import { WAHAChatPresences } from '../../structures/presence.dto';
 import {
@@ -35,15 +38,17 @@ import {
   ProxyConfig,
   SessionConfig,
 } from '../../structures/sessions.dto';
-import { NotImplementedByEngineError } from '../exceptions';
-import { LocalSessionStorage, MediaStorage } from './storage.abc';
-import { OTPRequest, RequestCodeRequest } from '../../structures/auth.dto';
 import {
   ImageStatus,
   TextStatus,
   VideoStatus,
   VoiceStatus,
 } from '../../structures/status.dto';
+import { WASessionStatusBody } from '../../structures/webhooks.dto';
+import { NotImplementedByEngineError } from '../exceptions';
+import { QR } from '../QR';
+import { MediaManager } from './media.abc';
+import { LocalSessionStorage } from './storage.abc';
 
 const CHROME_PATH = '/usr/bin/google-chrome-stable';
 const CHROMIUM_PATH = '/usr/bin/chromium';
@@ -64,46 +69,56 @@ export function ensureSuffix(phone) {
 }
 
 export enum WAHAInternalEvent {
-  engine_start = 'engine.start',
+  ENGINE_START = 'engine.start',
+  SESSION_STATUS_CHANGED = 'session.status.changed',
 }
 
 export interface SessionParams {
   name: string;
-  storage: MediaStorage;
+  mediaManager: MediaManager;
   log: ConsoleLogger;
   sessionStorage: LocalSessionStorage;
   proxyConfig?: ProxyConfig;
-  sessionConfig: SessionConfig;
+  sessionConfig?: SessionConfig;
 }
 
 export abstract class WhatsappSession {
-  public status: WAHASessionStatus;
   public events: EventEmitter;
   public engine: WAHAEngine;
 
   public name: string;
-  protected storage: MediaStorage;
+  protected mediaManager: MediaManager;
   protected log: ConsoleLogger;
   protected sessionStorage: LocalSessionStorage;
   protected proxyConfig?: ProxyConfig;
-  public sessionConfig: SessionConfig;
+  public sessionConfig?: SessionConfig;
+
+  private _status: WAHASessionStatus;
 
   public constructor({
     name,
     log,
     sessionStorage,
     proxyConfig,
-    storage,
+    mediaManager,
     sessionConfig,
   }: SessionParams) {
+    this.events = new EventEmitter();
     this.name = name;
     this.proxyConfig = proxyConfig;
-    this.status = WAHASessionStatus.STARTING;
     this.log = log;
     this.sessionStorage = sessionStorage;
-    this.events = new EventEmitter();
-    this.storage = storage;
+    this.mediaManager = mediaManager;
     this.sessionConfig = sessionConfig;
+  }
+
+  protected set status(value: WAHASessionStatus) {
+    this._status = value;
+    this.events.emit(WAHAInternalEvent.SESSION_STATUS_CHANGED, value);
+  }
+
+  public get status() {
+    return this._status;
   }
 
   getBrowserExecutablePath() {
@@ -140,14 +155,37 @@ export abstract class WhatsappSession {
     ];
   }
 
+  protected isDebugEnabled() {
+    return this.log.isLevelEnabled('debug');
+  }
+
   /** Start the session */
   abstract start();
 
   /** Stop the session */
-  abstract stop(): void;
+  abstract stop(): Promise<void>;
 
   /** Subscribe the handler to specific hook */
-  abstract subscribe(hook: WAHAEvents | string, handler: (message) => void);
+  subscribeSessionEvent(
+    hook: WAHAEvents | string,
+    handler: (message) => void,
+  ): boolean {
+    switch (hook) {
+      case WAHAEvents.SESSION_STATUS:
+        this.events.on(WAHAInternalEvent.SESSION_STATUS_CHANGED, (value) => {
+          const body: WASessionStatusBody = { name: this.name, status: value };
+          handler(body);
+        });
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  abstract subscribeEngineEvent(
+    hook: WAHAEvents | string,
+    handler: (message) => void,
+  ): boolean;
 
   /**
    * START - Methods for API
@@ -157,7 +195,7 @@ export abstract class WhatsappSession {
    * Auth methods
    */
 
-  public getQR(): Promise<Buffer> {
+  public getQR(): QR {
     throw new NotImplementedByEngineError();
   }
 
@@ -169,7 +207,7 @@ export abstract class WhatsappSession {
     throw new NotImplementedByEngineError();
   }
 
-  abstract getScreenshot(): Promise<Buffer | string>;
+  abstract getScreenshot(): Promise<Buffer>;
 
   public getSessionMeInfo(): Promise<MeInfo | null> {
     throw new NotImplementedByEngineError();
@@ -201,6 +239,10 @@ export abstract class WhatsappSession {
   abstract sendFile(request: MessageFileRequest);
 
   abstract sendVoice(request: MessageVoiceRequest);
+
+  sendVideo(request: MessageVideoRequest) {
+    throw new NotImplementedByEngineError();
+  }
 
   abstract reply(request: MessageReplyRequest);
 
@@ -278,6 +320,10 @@ export abstract class WhatsappSession {
   }
 
   public getGroup(id) {
+    throw new NotImplementedByEngineError();
+  }
+
+  public getInfoAdminsOnly(id): Promise<SettingsSecurityChangeInfo> {
     throw new NotImplementedByEngineError();
   }
 

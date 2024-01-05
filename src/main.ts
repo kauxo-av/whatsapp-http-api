@@ -5,8 +5,9 @@ import { AllExceptionsFilter } from './api/exception.filter';
 import { WhatsappConfigService } from './config.service';
 import { AppModuleCore } from './core/app.module.core';
 import { SwaggerModuleCore } from './core/swagger.module.core';
-import { getWAHAVersion, WAHAVersion } from './version';
+import { getLogLevels } from './helpers';
 import { WAHA_WEBHOOKS } from './structures/webhooks.dto';
+import { getWAHAVersion, VERSION, WAHAVersion } from './version';
 
 async function loadModules(): Promise<
   [typeof AppModuleCore, typeof SwaggerModuleCore]
@@ -30,10 +31,7 @@ async function loadModules(): Promise<
 async function bootstrap() {
   const [AppModule, SwaggerModule] = await loadModules();
   const app = await NestFactory.create(AppModule, {
-    logger:
-      process.env.DEBUG != undefined
-        ? ['log', 'debug', 'error', 'verbose', 'warn']
-        : ['log', 'error', 'warn'],
+    logger: getLogLevels(),
   });
 
   app.enableShutdownHooks();
@@ -50,6 +48,7 @@ async function bootstrap() {
   const config = app.get(WhatsappConfigService);
   await app.listen(config.port);
   console.log(`WhatsApp HTTP API is running on: ${await app.getUrl()}`);
+  console.log(`Environment:`, VERSION);
 }
 
 bootstrap();

@@ -13,8 +13,8 @@ __metadata:
   linkType: hard
 
 "@adiwajshing/baileys@github:WhiskeySockets/Baileys":
-  version: 6.4.1
-  resolution: "@adiwajshing/baileys@https://github.com/WhiskeySockets/Baileys.git#commit=cd8542ff7c072b5e58d2d3de2396983a5304e5e1"
+  version: 6.5.0
+  resolution: "@adiwajshing/baileys@https://github.com/WhiskeySockets/Baileys.git#commit=f527c1247c09b3d25d3e5f3a6040930d6eefdc91"
   dependencies:
     "@adiwajshing/keyed-db": ^0.2.4
     "@hapi/boom": ^9.1.3
@@ -44,7 +44,7 @@ __metadata:
       optional: true
     sharp:
       optional: true
-  checksum: 4778b35869210130b938b5fb1d49a5b7263d7aaff734fe3ea4747fb06231ef9ffcf646ec653054e086c08d2a1b8833d167ebb975e0ec93251658dd9a081bd790
+  checksum: 6705a0aac86e556a6b1b4580382e7c1fbb5f756282f2fb667f8dc1d08d6441b72171e2f46b450ff529c4a5ba131ba1b465da9d3a22bdd862ceed3536c7d1e105
   languageName: node
   linkType: hard
 
@@ -5706,7 +5706,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fluent-ffmpeg@npm:^2.1.2":
+"fluent-ffmpeg@npm:2.1.2":
   version: 2.1.2
   resolution: "fluent-ffmpeg@npm:2.1.2"
   dependencies:
@@ -8063,13 +8063,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jsqr@npm:^1.3.1":
-  version: 1.4.0
-  resolution: "jsqr@npm:1.4.0"
-  checksum: 7c572971f90c42772e30d152bde63b84edf1164bde80c53942e6b2068ea31caf00ad704aa46cacc9e71645f52dbeddebc6e84ba15e883c678ee93cde690de339
-  languageName: node
-  linkType: hard
-
 "keyv@npm:^3.0.0":
   version: 3.1.0
   resolution: "keyv@npm:3.1.0"
@@ -9240,10 +9233,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"node-webpmux@npm:^3.1.0":
-  version: 3.1.8
-  resolution: "node-webpmux@npm:3.1.8"
-  checksum: 96d230f33bf645e93c4e1c16f506571bde91ede320d4a9951ed08a099f5796b68a89a3591815019eee3c385215eaaa6c428008abea65cecabbfbd463b8551b23
+"node-webpmux@npm:3.1.0":
+  version: 3.1.0
+  resolution: "node-webpmux@npm:3.1.0"
+  checksum: 45041b561d21ab88b81b5eaa1761cf1667dc56118b1ecf1ec1774d5f00ab9fbf473cdada7d5e09577f12dbc765fd22841b81ebeee352ddba5db7b6c5f5980056
   languageName: node
   linkType: hard
 
@@ -13125,22 +13118,21 @@ __metadata:
     tsconfig-paths: ^4.1.0
     typescript: ^4.8.4
     venom-bot: 5.0.1
-    whatsapp-web.js: "https://github.com/elhumbertoz/whatsapp-web.js#patch-2"
+    whatsapp-web.js: "https://github.com/pedroslopez/whatsapp-web.js"
   languageName: unknown
   linkType: soft
 
-"whatsapp-web.js@https://github.com/elhumbertoz/whatsapp-web.js#patch-2":
-  version: 1.22.2-alpha.0
-  resolution: "whatsapp-web.js@https://github.com/elhumbertoz/whatsapp-web.js.git#commit=3a6f2a3d4b2005ba894de663585305e633663edb"
+"whatsapp-web.js@https://github.com/pedroslopez/whatsapp-web.js":
+  version: 1.23.1-alpha.2
+  resolution: "whatsapp-web.js@https://github.com/pedroslopez/whatsapp-web.js.git#commit=1e9b82b2011fe1ad70cee8ce7813c352470cb6c4"
   dependencies:
     "@pedroslopez/moduleraid": ^5.0.2
     archiver: ^5.3.1
-    fluent-ffmpeg: ^2.1.2
+    fluent-ffmpeg: 2.1.2
     fs-extra: ^10.1.0
-    jsqr: ^1.3.1
     mime: ^3.0.0
     node-fetch: ^2.6.5
-    node-webpmux: ^3.1.0
+    node-webpmux: 3.1.0
     puppeteer: ^13.0.0
     unzipper: ^0.10.11
   dependenciesMeta:
@@ -13150,7 +13142,7 @@ __metadata:
       optional: true
     unzipper:
       optional: true
-  checksum: c163fb12fc59e5c52ea80ee03a25009d008370e3a329f2e3cf4c99addeaa19b42157dd10393807b45910ea8efd1a3e8148b141e74d9b40e66c519a944be11c81
+  checksum: 425fa37ba93bc42a32609dde9e102a11e2783750119972153593a887200afbdf555dc3b559c346274b72d92ceb00cc363cf714b6ff40c8c35103676234170837
   languageName: node
   linkType: hard
 

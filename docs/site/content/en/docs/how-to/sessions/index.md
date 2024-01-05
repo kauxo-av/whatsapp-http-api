@@ -9,7 +9,7 @@ images: [ ]
 weight: 125
 ---
 
-## Sessions
+## Endpoints
 See the list of engines [**that support the features ->**]({{< relref "/docs/how-to/engines#features" >}}).
 
 ### Start
@@ -128,6 +128,32 @@ In order to log out the session - call `POST /api/sessions/logout`
   "logout": true
 }
 ```
+### Get screenshot
+Get screenshot of the session's screen.
+
+```bash
+GET /api/screenshot?session=default
+```
+
+#### Get screenshot in Base64
+You can get screenshot in base64 format by adding `Accept: application/json` header to the request.
+
+```bash
+GET /api/screenshot?session=default
+Accept: application/json
+```
+
+```json
+{
+  "mimetype": "image/png",
+  "data": "base64-encoded-data"
+}
+```
+
+You can change it in Swagger by clicking on **Media Type** dropdown and selecting **application/json**:
+
+![](/images/swagger-media-type.png)
+
 
 ### Get me
 
@@ -151,18 +177,66 @@ null
 
 
 
-
-## Authentication
+### Get QR
 See the list of engines [**that support the features ->**]({{< relref "/docs/how-to/engines#features" >}}).
 
-### Get QR
 The simplest way to authenticate a new session - get QR code and scan it on your device.
 ```bash
 GET /api/{session}/auth/qr
 ```
 You'll get QR image that you can scan and get authenticated
 
+#### QR formats
+You can get QR in different formats:
+1. **binary image** - `GET /api/{session}/auth/qr`
+2. **base64 image** - `GET /api/{session}/auth/qr` and set `Accept: application/json` header
+3. **raw** - `GET /api/{session}/auth/qr?format=raw`
+
+Here's detailed information about each format:
+
+1. **binary image**, binary image - **default** format, you'll get image in response
+```bash
+# Get image - binary
+GET /api/{session}/auth/qr
+
+# OR
+GET /api/{session}/auth/qr?format=image
+
+# OR specify Accept header as well
+GET /api/{session}/auth/qr?format=image
+Accept: image/png
+```
+
+2. **base64 image** - you'll get image in base64 format in response if you set `Accept: application/json` header.
+```bash
+GET /api/{session}/auth/qr?format=image
+Accept: application/json
+```
+
+```json
+{
+  "mimetype": "image/png",
+  "data": "base64-encoded-data"
+}
+```
+
+You can change it in Swagger by clicking on **Media Type** dropdown and selecting **application/json**:
+
+![](/images/swagger-media-type.png)
+
+3. **raw** - you'll get raw data in response, you can use it to generate QR code on your side
+```bash
+GET /api/{session}/auth/qr?format=raw
+```
+
+```json
+{
+  "value": "value-that-you-need-to-use-to-generate-qr-code"
+}
+```
+
 ### Get pairing code
+See the list of engines [**that support the features ->**]({{< relref "/docs/how-to/engines#features" >}}).
 
 You can [link a session with phone number](https://faq.whatsapp.com/1324084875126592) - make a request to the endpoint.
 ```bash
@@ -184,6 +258,37 @@ You'll get code in the response that you can use on your WhatsApp app to connect
 ```
 
 
+## Webhooks
+See the list of engines [**that support the feature ->**]({{< relref "/docs/how-to/engines#features" >}}).
+
+### session.status
+The `session.status` event is triggered when the session status changes.
+- `STOPPED` - session is stopped
+- `STARTING` - session is starting
+- `SCAN_QR_CODE` - session is required to scan QR code or login via phone number
+- `WORKING` - session is working and ready to use
+- `FAILED` - session is failed due to some error. It's likely that authorization is required again or device has been disconnected from that account.
+  Try to restart the session and if it doesn't help - logout and start the session again.
+
+```json
+{
+    "event": "session.status",
+    "session": "default",
+    "me": {
+        "id": "7911111@c.us",
+        "pushName": "~"
+    },
+    "payload": {
+        "status": "WORKING"
+    },
+    "engine": "WEBJS",
+    "environment": {
+        "version": "2023.10.12",
+        "engine": "WEBJS",
+        "tier": "PLUS"
+    }
+}
+```
 
 
 ## Advanced sessions ![](/images/versions/plus.png)
@@ -206,7 +311,7 @@ to the container. WAHA stores authentication information in the directory and re
 The full command would be:
 
 ```bash
-docker run --rm -d -v `pwd`/.sessions:/app/.sessions -p 3000:3000/tcp --name whatsapp-http-api devlikeapro/whatsapp-http-api-plus
+docker run -d -v `pwd`/.sessions:/app/.sessions -p 3000:3000/tcp --name whatsapp-http-api devlikeapro/whatsapp-http-api-plus
 ```
 
 #### Remote storage ![](/images/versions/soon.png)

@@ -1,13 +1,12 @@
 import { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, OpenAPIObject, SwaggerModule } from '@nestjs/swagger';
+import { DECORATORS } from '@nestjs/swagger/dist/constants';
 
 import { WhatsappConfigService } from '../config.service';
 import { VERSION } from '../version';
-import { DECORATORS } from '@nestjs/swagger/dist/constants';
 
 export class SwaggerModuleCore {
   configure(app: INestApplication, webhooks: any[]) {
-    this.setUpAuth(app);
     const builder = new DocumentBuilder();
 
     builder
@@ -129,9 +128,5 @@ export class SwaggerModuleCore {
     // @ts-ignore
     document.webhooks = webhooks;
     return document;
-  }
-
-  protected setUpAuth(app: INestApplication) {
-    return undefined;
   }
 }

@@ -1,4 +1,5 @@
 import { UnprocessableEntityException } from '@nestjs/common/exceptions/unprocessable-entity.exception';
+import * as Buffer from 'buffer';
 import { create, CreateConfig, Message, Whatsapp } from 'venom-bot';
 
 import {
@@ -21,6 +22,7 @@ import {
   WAHASessionStatus,
 } from '../structures/enums.dto';
 import { WAMessage } from '../structures/responses.dto';
+import { IEngineMediaProcessor } from './abc/media.abc';
 import { WAHAInternalEvent, WhatsappSession } from './abc/session.abc';
 import { NotImplementedByEngineError } from './exceptions';
 import { QR } from './QR';
@@ -65,7 +67,7 @@ export class WhatsappSessionVenomCore extends WhatsappSession {
 
   protected getCatchQR() {
     return (base64Qrimg, asciiQR, attempts, urlCode) => {
-      this.qr.save(base64Qrimg);
+      this.qr.save(base64Qrimg, urlCode);
       this.status = WAHASessionStatus.SCAN_QR_CODE;
       this.log.debug('Number of attempts to read the qrcode: ', attempts);
       this.log.log('Terminal qrcode:');
@@ -75,6 +77,7 @@ export class WhatsappSessionVenomCore extends WhatsappSession {
   }
 
   async start() {
+    this.status = WAHASessionStatus.STARTING;
     try {
       this.whatsapp = await this.buildClient();
     } catch (error) {
@@ -85,40 +88,53 @@ export class WhatsappSessionVenomCore extends WhatsappSession {
     }
 
     this.status = WAHASessionStatus.WORKING;
-    this.events.emit(WAHAInternalEvent.engine_start);
+    this.events.emit(WAHAInternalEvent.ENGINE_START);
     return this;
   }
 
-  stop() {
-    return this.whatsapp.close();
+  async stop() {
+    await this.whatsapp.close();
+    this.status = WAHASessionStatus.STOPPED;
   }
 
-  subscribe(event: WAHAEvents | string, handler: (message) => void) {
-    if (event === WAHAEvents.MESSAGE) {
-      return this.whatsapp.onMessage((message: Message) =>
-        this.processIncomingMessage(message).then(handler),
-      );
-    } else if (event === WAHAEvents.MESSAGE_ANY) {
-      return this.whatsapp.onAnyMessage((message: Message) =>
-        this.processIncomingMessage(message).then(handler),
-      );
-    } else if (event === WAHAEvents.STATE_CHANGE) {
-      return this.whatsapp.onStateChange(handler);
-    } else if (event === WAHAEvents.MESSAGE_ACK) {
-      return this.whatsapp.onAck(handler);
-    } else if (event === WAHAEvents.GROUP_JOIN) {
-      return this.whatsapp.onAddedToGroup(handler);
-    } else {
-      throw new NotImplementedByEngineError(
-        `Engine does not support webhook event: ${event}`,
-      );
+  subscribeEngineEvent(event: WAHAEvents | string, handler: (message) => void) {
+    switch (event) {
+      case WAHAEvents.MESSAGE:
+        this.whatsapp.onMessage((message: Message) =>
+          this.processIncomingMessage(message).then(handler),
+        );
+        return true;
+      case WAHAEvents.MESSAGE_ANY:
+        this.whatsapp.onAnyMessage((message: Message) =>
+          this.processIncomingMessage(message).then(handler),
+        );
+        return true;
+      case WAHAEvents.STATE_CHANGE:
+        this.whatsapp.onStateChange(handler);
+        return true;
+      case WAHAEvents.MESSAGE_ACK:
+        this.whatsapp.onAck(handler);
+        return true;
+      case WAHAEvents.GROUP_JOIN:
+        this.whatsapp.onAddedToGroup(handler);
+        return true;
+      default:
+        return false;
     }
   }
 
   /**
    * START - Methods for API
    */
-  getScreenshot(): Promise<Buffer | string> {
+
+  /**
+   * Auth methods
+   */
+  public getQR(): QR {
+    return this.qr;
+  }
+
+  getScreenshot(): Promise<Buffer> {
     if (this.status === WAHASessionStatus.STARTING) {
       throw new UnprocessableEntityException(
         `The session is starting, please try again after few seconds`,
@@ -240,17 +256,13 @@ export class WhatsappSessionVenomCore extends WhatsappSession {
    * END - Methods for API
    */
 
-  protected async downloadAndDecryptMedia(message: Message) {
-    if (!message.isMMS || !message.isMedia) {
-      return message;
-    }
-    // @ts-ignore
-    message.mediaUrl = await this.storage.save(message.id, '', undefined);
-    return message;
+  protected downloadMedia(message: Message) {
+    const processor = new EngineMediaProcessor(this);
+    return this.mediaManager.processMedia(processor, message);
   }
 
   private processIncomingMessage(message: Message) {
-    return this.downloadAndDecryptMedia(message).then(this.toWAMessage);
+    return this.downloadMedia(message).then(this.toWAMessage);
   }
 
   protected toWAMessage(message: Message): Promise<WAMessage> {
@@ -262,15 +274,44 @@ export class WhatsappSessionVenomCore extends WhatsappSession {
       fromMe: message.fromMe,
       to: message.to,
       body: message.body,
+      // Media
       // @ts-ignore
-      hasMedia: Boolean(message.mediaUrl),
+      hasMedia: Boolean(message.media),
       // @ts-ignore
-      mediaUrl: message.mediaUrl,
+      media: message.media,
+      // @ts-ignore
+      mediaUrl: message.media?.url,
       // @ts-ignore
       ack: message.ack,
       location: undefined,
       vCards: undefined,
       _data: message,
     });
+  }
+}
+
+export class EngineMediaProcessor implements IEngineMediaProcessor<Message> {
+  constructor(public session: WhatsappSessionVenomCore) {}
+
+  hasMedia(message: any): boolean {
+    if (!message.isMMS || !message.isMedia) {
+      return message;
+    }
+  }
+
+  getMessageId(message: any): string {
+    return '';
+  }
+
+  getMimetype(message: any): string {
+    return '';
+  }
+
+  getMediaBuffer(message: any): Promise<Buffer | null> {
+    return Promise.resolve(undefined);
+  }
+
+  getFilename(message: Message): string | null {
+    return null;
   }
 }
