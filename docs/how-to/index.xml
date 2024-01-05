@@ -5,8 +5,9 @@ WAHA Core - the basic version that meet almost 80% people&amp;rsquo;s needs. 100
 If you haven&amp;rsquo;t yet - please follow the steps from Quick Start →.
 Fields #
 There are common fields that you can find in almost all requests:
+{ &amp;quot;session&amp;quot;: &amp;quot;default&amp;quot;, &amp;quot;chatId&amp;quot;: &amp;quot;12132132130@c.us&amp;quot;, &amp;quot;file&amp;quot;: &amp;quot;...&amp;quot; } session #
 session - a session name from which account you&amp;rsquo;re sending the message. We use default in the examples.
-Core version supports only default session. Plus allows you to run multiple sessions inside one container to save your memory and CPU resources!</description></item><item><title>Receive messages</title><link>https://waha.devlike.pro/docs/how-to/receive-messages/</link><pubDate>Tue, 06 Oct 2020 08:48:45 +0000</pubDate><guid>https://waha.devlike.pro/docs/how-to/receive-messages/</guid><description>We consider that you&amp;rsquo;ve run docker container and authenticated the session with QR code.
+Core version supports only default session.</description></item><item><title>Receive messages</title><link>https://waha.devlike.pro/docs/how-to/receive-messages/</link><pubDate>Tue, 06 Oct 2020 08:48:45 +0000</pubDate><guid>https://waha.devlike.pro/docs/how-to/receive-messages/</guid><description>We consider that you&amp;rsquo;ve run docker container and authenticated the session with QR code.
 If you haven&amp;rsquo;t yet - please follow the steps from Quick Start →.
 You must use Webhooks to receive messages from WhatsApp to your application.
 Start a new session with configured message event in webhooks - call POST /api/sessions/start with the payload:
@@ -14,7 +15,7 @@ Start a new session with configured message event in webhooks - call POST /api/s
 Webhooks are a way for two different applications to communicate with each other in real-time. When a certain event happens in one application, it sends a message to another application through a webhook URL. The receiving application can then take action based on the information received.
 Setup webhooks #
 Session webhooks #
-You can define webhooks configuration per session when you start it with POST /api/sessions/start request data.</description></item><item><title>Sessions</title><link>https://waha.devlike.pro/docs/how-to/sessions/</link><pubDate>Tue, 06 Oct 2020 08:48:45 +0000</pubDate><guid>https://waha.devlike.pro/docs/how-to/sessions/</guid><description>Sessions #
+You can define webhooks configuration per session when you start it with POST /api/sessions/start request data.</description></item><item><title>Sessions</title><link>https://waha.devlike.pro/docs/how-to/sessions/</link><pubDate>Tue, 06 Oct 2020 08:48:45 +0000</pubDate><guid>https://waha.devlike.pro/docs/how-to/sessions/</guid><description>Endpoints #
 See the list of engines that support the features -&amp;gt;.
 Start #
 In order to start a new session - call POST /api/sessions/start
@@ -47,5 +48,6 @@ Endpoints for groups. Please look at swagger for details.
 {session} - use the session name for Whatsapp instance that you created with POST /api/session/start endpoint {groupId} - group id in format 123123123123@g.us. You can get the id in a few ways: By handling incoming message webhook. By getting all groups (see below). By creating a new group and saving the id.</description></item><item><title>Security</title><link>https://waha.devlike.pro/docs/how-to/security/</link><pubDate>Tue, 06 Oct 2020 08:48:45 +0000</pubDate><guid>https://waha.devlike.pro/docs/how-to/security/</guid><description>💡 Do not expose WhatsApp HTTP API on public networks! We do not recommend exposing the API on any public networks!
 Either protect the API with Api Key or deny access by using firewalls.
 Swagger Security #
+Username and password #
 If you want to hide the project Swagger panel under the password - run the following command to hide under admin/admin login and password.
 docker run -it -e WHATSAPP_SWAGGER_USERNAME=admin -eWHATSAPP_SWAGGER_PASSWORD=admin devlikeapro/whatsapp-http-api-plus Open http://localhost:3000/ and enter admin / admin in the inputs:</description></item></channel></rss>
